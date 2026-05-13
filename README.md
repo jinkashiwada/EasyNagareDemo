@@ -1,5 +1,12 @@
 # 2D Fluid Demo / 2次元流体デモ
 
+インタラクティブなデモンストレーションは以下のURLから利用できます。
+
+Interactive demonstrations are available at the following URLs.
+
+- Japanese: https://jinkashiwada.github.io/EasyNagareDemo/
+- English: https://jinkashiwada.github.io/EasyNagareDemo/index_en.html
+
 ## 日本語
 
 ### 概要
