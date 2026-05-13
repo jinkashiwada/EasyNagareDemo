@@ -57,13 +57,17 @@
       right: max(14px, env(safe-area-inset-right));
       z-index: 5;
       display: grid;
-      grid-template-columns: minmax(250px, 1fr) auto;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      grid-template-areas:
+        "title toggle"
+        "controls controls";
       gap: 14px;
       align-items: start;
       pointer-events: none;
     }
 
     .title-panel,
+    .toggle-panel,
     .controls {
       border: 1px solid var(--line);
       background: var(--panel);
@@ -73,13 +77,21 @@
     }
 
     .title-panel {
+      grid-area: title;
       min-width: 0;
       padding: 16px 18px;
       border-radius: 8px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       gap: 12px;
+      pointer-events: auto;
+    }
+
+    .toggle-panel {
+      grid-area: toggle;
+      padding: 10px;
+      border-radius: 8px;
       pointer-events: auto;
     }
 
@@ -99,6 +111,8 @@
     }
 
     .controls {
+      grid-area: controls;
+      justify-self: end;
       width: min(620px, 100%);
       padding: 12px;
       border-radius: 8px;
@@ -222,7 +236,7 @@
 
     @media (max-width: 980px) {
       .topbar {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr) auto;
       }
 
       .controls {
@@ -257,6 +271,10 @@
         padding: 10px 12px;
       }
 
+      .toggle-panel {
+        padding: 7px;
+      }
+
       .lead {
         min-width: 0;
         overflow: hidden;
@@ -273,6 +291,8 @@
       <p class="lead">
         <span class="hint">Create a flow with your finger.</span><a class="lang-link" href="index.html">日本語</a>
       </p>
+    </section>
+    <section class="toggle-panel">
       <button id="controlsToggle" class="panel-toggle" type="button" aria-expanded="true">Hide Settings</button>
     </section>
 
@@ -292,13 +312,13 @@
         </select>
         <div class="range-control">
           <label for="speedSlider">Inflow</label>
-          <input id="speedSlider" type="range" min="0.1" max="1.2" value="0.48" step="0.02">
-          <output id="speedValue" for="speedSlider">0.48</output>
+          <input id="speedSlider" type="range" min="0.1" max="1.2" value="0.20" step="0.02">
+          <output id="speedValue" for="speedSlider">0.20</output>
         </div>
         <div class="range-control">
           <label for="trailSlider">Particles</label>
-          <input id="trailSlider" type="range" min="-1" max="30" value="8" step="1">
-          <output id="trailValue" for="trailSlider">8</output>
+          <input id="trailSlider" type="range" min="-1" max="30" value="1" step="1">
+          <output id="trailValue" for="trailSlider">1</output>
         </div>
       </div>
     </section>
@@ -328,12 +348,12 @@
         rows: 128,
         lowRes: false,
         uniformFlow: true,
-        inflowSpeed: 0.48,
+        inflowSpeed: 0.20,
         obstacleMode: false,
         contourMode: "speed",
         showVectors: true,
         controlsCollapsed: window.innerWidth <= 680,
-        trailScale: 8,
+        trailScale: 1,
         pressureIterations: 16,
         dpr: 1,
         domainAspect: 16 / 9,
