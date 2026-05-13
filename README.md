@@ -12,7 +12,7 @@
 
 - `index.html`: 日本語版。連続式を近似的に考慮した展示用デモ。
 - `index_en.html`: 英語版。同じ計算モデルの英語UI。
-- `index_incompressible.html`, `index_v1.html`, `index_current_ui_v1_model.html`, `index_kk_scheme_backup.html`: ローカル検討用のバックアップです。GitHub Pagesで公開するために必須ではありません。
+ローカルの検討用バックアップは `local_backups/` に置いており，GitHub Pagesでは公開しません。
 
 ### 操作方法
 
@@ -86,7 +86,7 @@ The primary public page is `index.html`, which provides the Japanese version wit
 
 - `index.html`: Japanese version. Main public demo with approximate incompressibility.
 - `index_en.html`: English version using the same numerical model.
-- `index_incompressible.html`, `index_v1.html`, `index_current_ui_v1_model.html`, `index_kk_scheme_backup.html`: Local backup files from the development process. They are not required for GitHub Pages publication.
+Local development backups are stored under `local_backups/` and are not published through GitHub Pages.
 
 ### Controls
 
