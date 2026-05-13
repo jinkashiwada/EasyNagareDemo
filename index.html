@@ -238,6 +238,88 @@
       font-size: clamp(13px, 1.3vw, 16px);
     }
 
+    .qr-share-button {
+      position: fixed;
+      left: max(14px, env(safe-area-inset-left));
+      bottom: max(14px, env(safe-area-inset-bottom));
+      z-index: 8;
+      width: 54px;
+      height: 54px;
+      min-height: 54px;
+      padding: 10px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-strong);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .qr-share-button svg {
+      width: 30px;
+      height: 30px;
+      fill: var(--text);
+    }
+
+    .qr-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background: rgba(2, 8, 11, 0.78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .qr-overlay[hidden] {
+      display: none;
+    }
+
+    .qr-card {
+      position: relative;
+      width: min(82vw, 430px);
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(238, 251, 251, 0.98);
+      color: #061116;
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+
+    .qr-card img {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #fff;
+    }
+
+    .qr-card p {
+      margin: 14px 0 0;
+      color: #173238;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .qr-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 38px;
+      height: 38px;
+      min-height: 38px;
+      padding: 0;
+      border-color: rgba(0, 0, 0, 0.18);
+      background: rgba(6, 17, 22, 0.88);
+      color: #fff;
+      font-size: 24px;
+      line-height: 1;
+    }
+
     @media (max-width: 980px) {
       .topbar {
         grid-template-columns: max-content max-content;
@@ -291,6 +373,20 @@
 <body>
   <canvas id="fluid" aria-label="2次元流体デモ"></canvas>
 
+  <button id="qrButton" class="qr-share-button" type="button" aria-label="共有用QRコードを表示">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M3 3h10v10H3V3zm3 3v4h4V6H6zm13-3h10v10H19V3zm3 3v4h4V6h-4zM3 19h10v10H3V19zm3 3v4h4v-4H6zm14-5h3v3h-3v-3zm5 0h4v4h-2v2h-3v-4h1v-2zm-8 5h3v3h-3v-3zm4 4h3v3h-3v-3zm5-1h3v4h-4v-2h1v-2zm-9 3h2v2h-2v-2z"/>
+    </svg>
+  </button>
+
+  <div id="qrOverlay" class="qr-overlay" hidden>
+    <div class="qr-card" role="dialog" aria-modal="true" aria-label="共有用QRコード">
+      <button id="qrClose" class="qr-close" type="button" aria-label="閉じる">×</button>
+      <img src="assets/qr_ja.svg" alt="デモページのQRコード">
+      <p>このQRコードを読み取るとデモを開けます</p>
+    </div>
+  </div>
+
   <main class="topbar" aria-label="操作パネル">
     <section class="title-panel">
       <p class="lead">
@@ -335,6 +431,9 @@
 
       const canvas = document.getElementById("fluid");
       const ctx = canvas.getContext("2d", { alpha: false });
+      const qrButton = document.getElementById("qrButton");
+      const qrOverlay = document.getElementById("qrOverlay");
+      const qrClose = document.getElementById("qrClose");
       const controlsToggle = document.getElementById("controlsToggle");
       const controlsPanel = document.getElementById("controlsPanel");
       const flowBtn = document.getElementById("flowBtn");
@@ -1049,6 +1148,18 @@
       resetBtn.addEventListener("click", () => {
         clearField();
       });
+
+      function openQr() {
+        qrOverlay.hidden = false;
+      }
+
+      function closeQr() {
+        qrOverlay.hidden = true;
+      }
+
+      qrButton.addEventListener("click", openQr);
+      qrOverlay.addEventListener("click", closeQr);
+      qrClose.addEventListener("click", closeQr);
 
       controlsToggle.addEventListener("click", () => {
         state.controlsCollapsed = !state.controlsCollapsed;
