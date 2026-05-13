@@ -12,7 +12,6 @@
 
 - `index.html`: 日本語版。連続式を近似的に考慮した展示用デモ。
 - `index_en.html`: 英語版。同じ計算モデルの英語UI。
-ローカルの検討用バックアップは `local_backups/` に置いており，GitHub Pagesでは公開しません。
 
 ### 操作方法
 
@@ -62,14 +61,6 @@
 
 このデモは研究用の解析結果を得るためのものではありません。水理学，流体力学，数値シミュレーションの導入展示として，流れ場や渦度場を視覚的に理解するための教材です。
 
-### GitHub Pagesでの公開
-
-1. GitHubで新しいPublicリポジトリを作成します。
-2. このフォルダのファイルをリポジトリに追加します。
-3. `main` ブランチへpushします。
-4. GitHubの `Settings` → `Pages` で，`Deploy from a branch` を選び，`main` / `/root` を指定します。
-5. 発行されたURLをiPadやPCのブラウザで開きます。
-
 計算はWebサーバーではなく，アクセスした端末のブラウザ上で実行されます。
 
 ---
@@ -86,7 +77,6 @@ The primary public page is `index.html`, which provides the Japanese version wit
 
 - `index.html`: Japanese version. Main public demo with approximate incompressibility.
 - `index_en.html`: English version using the same numerical model.
-Local development backups are stored under `local_backups/` and are not published through GitHub Pages.
 
 ### Controls
 
@@ -135,13 +125,5 @@ is not solved to full convergence. Instead, a small fixed number of pressure-pro
 ### Scope
 
 This demo is not intended to produce research-grade simulation results. It is an outreach and teaching tool for introducing hydraulics, fluid mechanics, velocity fields, vorticity, wakes, and real-time numerical visualization.
-
-### Publishing with GitHub Pages
-
-1. Create a new public GitHub repository.
-2. Add the files in this folder to the repository.
-3. Push them to the `main` branch.
-4. In GitHub, open `Settings` → `Pages`, choose `Deploy from a branch`, then select `main` and `/root`.
-5. Open the generated URL on an iPad or PC browser.
 
 All computation runs in the visitor's browser. The web server only serves static files.
