@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>2次元流体デモ | 水理・防災・数値解析</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #071318;
+      --panel: rgba(11, 28, 34, 0.86);
+      --panel-strong: rgba(15, 41, 48, 0.94);
+      --line: rgba(166, 219, 222, 0.24);
+      --text: #eefbfb;
+      --muted: #bdd5d6;
+      --accent: #50d2c2;
+      --accent-2: #f4c46a;
+      --danger: #ff7a66;
+      --shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    body {
+      min-height: 100dvh;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      display: block;
+      background: #061116;
+    }
+
+    .topbar {
+      position: fixed;
+      top: max(14px, env(safe-area-inset-top));
+      left: max(14px, env(safe-area-inset-left));
+      right: max(14px, env(safe-area-inset-right));
+      z-index: 5;
+      display: grid;
+      grid-template-columns: minmax(250px, 1fr) auto;
+      gap: 14px;
+      align-items: start;
+      pointer-events: none;
+    }
+
+    .title-panel,
+    .controls,
+    .legend,
+    .status {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .title-panel {
+      min-width: 0;
+      padding: 16px 18px;
+      border-radius: 8px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(22px, 3.2vw, 42px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(14px, 1.7vw, 20px);
+      line-height: 1.55;
+    }
+
+    .controls {
+      width: min(620px, 100%);
+      padding: 12px;
+      border-radius: 8px;
+      pointer-events: auto;
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(112px, 1fr));
+      gap: 10px;
+    }
+
+    button,
+    select,
+    input[type="range"] {
+      min-height: 52px;
+      border: 1px solid rgba(181, 232, 231, 0.22);
+      border-radius: 8px;
+      background: rgba(13, 39, 45, 0.94);
+      color: var(--text);
+      font: 700 clamp(14px, 1.5vw, 18px)/1.2 system-ui, sans-serif;
+      cursor: pointer;
+      outline: none;
+    }
+
+    button {
+      padding: 10px 14px;
+    }
+
+    select {
+      grid-column: span 2;
+      padding: 0 12px;
+      appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, var(--text) 50%),
+        linear-gradient(135deg, var(--text) 50%, transparent 50%);
+      background-position:
+        calc(100% - 20px) 23px,
+        calc(100% - 14px) 23px;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+    }
+
+    .range-control {
+      grid-column: span 2;
+      min-height: 52px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 12px;
+      border: 1px solid rgba(181, 232, 231, 0.22);
+      border-radius: 8px;
+      background: rgba(13, 39, 45, 0.94);
+    }
+
+    .range-control label,
+    .range-control output {
+      font-size: clamp(13px, 1.4vw, 17px);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      min-height: 32px;
+      padding: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button[aria-pressed="true"] {
+      border-color: rgba(94, 236, 220, 0.74);
+      background: rgba(34, 110, 109, 0.92);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .danger {
+      border-color: rgba(255, 122, 102, 0.42);
+      color: #ffe8e4;
+    }
+
+    .bottom {
+      position: fixed;
+      left: max(14px, env(safe-area-inset-left));
+      right: max(14px, env(safe-area-inset-right));
+      bottom: max(14px, env(safe-area-inset-bottom));
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 14px;
+      pointer-events: none;
+    }
+
+    .legend {
+      width: min(420px, calc(100vw - 28px));
+      padding: 12px 14px;
+      border-radius: 8px;
+    }
+
+    .legend-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: clamp(12px, 1.4vw, 15px);
+      font-weight: 700;
+    }
+
+    .bar {
+      height: 18px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #061923, #15617a, #39b7a7, #f4d06e, #ff785e);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+    }
+
+    .status {
+      max-width: 560px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: clamp(13px, 1.4vw, 17px);
+      line-height: 1.5;
+      text-align: right;
+    }
+
+    .hint {
+      color: var(--text);
+      font-weight: 800;
+    }
+
+    .lang-link {
+      display: inline-block;
+      margin-top: 8px;
+      color: var(--accent);
+      font-size: clamp(13px, 1.3vw, 16px);
+      font-weight: 800;
+      text-decoration: none;
+      pointer-events: auto;
+    }
+
+    @media (max-width: 980px) {
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .topbar {
+        gap: 10px;
+      }
+
+      .title-panel {
+        padding: 13px 14px;
+      }
+
+      .control-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      select {
+        grid-column: span 2;
+      }
+
+      button,
+      select,
+      .range-control {
+        min-height: 48px;
+      }
+
+      .bottom {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .legend,
+      .status {
+        width: 100%;
+        max-width: none;
+      }
+
+      .status {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="fluid" aria-label="2次元流体デモ"></canvas>
+
+  <main class="topbar" aria-label="操作パネル">
+    <section class="title-panel">
+      <p class="lead">
+        <span class="hint">指で流れを作ってみよう。</span>
+      </p>
+      <a class="lang-link" href="index_en.html">English</a>
+    </section>
+
+    <section class="controls">
+      <div class="control-grid">
+        <button id="flowBtn" type="button" aria-pressed="true">一様流 ON</button>
+        <button id="obstacleBtn" type="button" aria-pressed="false">障害物を描く</button>
+        <button id="lowBtn" type="button" aria-pressed="false">低解像度</button>
+        <button id="resetBtn" type="button" class="danger">リセット</button>
+        <select id="contourSelect" aria-label="コンター">
+          <option value="speed">コンター: 流速</option>
+          <option value="vorticity">コンター: 渦度</option>
+        </select>
+        <select id="vectorSelect" aria-label="ベクトル">
+          <option value="on">ベクトル: 表示</option>
+          <option value="off">ベクトル: 非表示</option>
+        </select>
+        <div class="range-control">
+          <label for="speedSlider">流入流速</label>
+          <input id="speedSlider" type="range" min="0.1" max="1.2" value="0.48" step="0.02">
+          <output id="speedValue" for="speedSlider">0.48</output>
+        </div>
+        <div class="range-control">
+          <label for="trailSlider">粒子軌跡</label>
+          <input id="trailSlider" type="range" min="-1" max="30" value="8" step="1">
+          <output id="trailValue" for="trailSlider">8</output>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="bottom" aria-label="説明">
+    <section class="legend">
+      <div class="legend-title">
+        <span id="legendLeft">流速 小</span>
+        <span id="legendCenter"></span>
+        <span id="legendRight">流速 大</span>
+      </div>
+      <div class="bar" id="legendBar" aria-hidden="true"></div>
+    </section>
+    <section class="status" id="statusText">
+      実際の研究では，洪水流や河川の流れを数値シミュレーションで解析します。
+    </section>
+  </aside>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("fluid");
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const flowBtn = document.getElementById("flowBtn");
+      const obstacleBtn = document.getElementById("obstacleBtn");
+      const lowBtn = document.getElementById("lowBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const contourSelect = document.getElementById("contourSelect");
+      const vectorSelect = document.getElementById("vectorSelect");
+      const speedSlider = document.getElementById("speedSlider");
+      const speedValue = document.getElementById("speedValue");
+      const trailSlider = document.getElementById("trailSlider");
+      const trailValue = document.getElementById("trailValue");
+      const legendLeft = document.getElementById("legendLeft");
+      const legendCenter = document.getElementById("legendCenter");
+      const legendRight = document.getElementById("legendRight");
+      const legendBar = document.getElementById("legendBar");
+      const statusText = document.getElementById("statusText");
+
+      const state = {
+        cols: 128,
+        rows: 128,
+        lowRes: false,
+        uniformFlow: true,
+        inflowSpeed: 0.48,
+        obstacleMode: false,
+        contourMode: "speed",
+        showVectors: true,
+        trailScale: 8,
+        pressureIterations: 16,
+        dpr: 1,
+        domainAspect: 16 / 9,
+        viewportWidth: 1,
+        viewportHeight: 1,
+        offsetX: 0,
+        offsetY: 0,
+        width: 1,
+        height: 1,
+        cellW: 1,
+        cellH: 1,
+        pointer: null,
+        particles: [],
+        frame: 0,
+        lastTime: performance.now()
+      };
+
+      let vx;
+      let vy;
+      let vxNext;
+      let vyNext;
+      let pressure;
+      let pressureNext;
+      let divergence;
+      let solid;
+      let speedImage;
+      let speedData;
+      let fieldCanvas;
+      let fieldCtx;
+
+      const notes = [
+        "表示しているのは上から見たXY平面の流れです。",
+        "障害物の後ろに交互の渦ができます。",
+        "色は流速の大きさを表しています。明るいほど速い流れです。",
+        "渦度コンターでは，白が渦度0，赤と青が回転の向きの違いです。",
+        "粒子は速度場に沿って移動します。流れの向きに注目してください。",
+        "このデモでは水面高は解かず，水面変動がない平面2次元流れとして表示しています。",
+        "これは流体の運動方程式を簡略化してリアルタイムに計算したデモです。",
+        "実際の研究では，洪水流や河川の流れを数値シミュレーションで解析します。"
+      ];
+
+      function idx(x, y) {
+        return x + y * state.cols;
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function initField(cols, rows) {
+        state.cols = cols;
+        state.rows = rows;
+        const n = cols * rows;
+        vx = new Float32Array(n);
+        vy = new Float32Array(n);
+        vxNext = new Float32Array(n);
+        vyNext = new Float32Array(n);
+        pressure = new Float32Array(n);
+        pressureNext = new Float32Array(n);
+        divergence = new Float32Array(n);
+        solid = new Uint8Array(n);
+        speedImage = new ImageData(cols, rows);
+        speedData = speedImage.data;
+        fieldCanvas = document.createElement("canvas");
+        fieldCanvas.width = cols;
+        fieldCanvas.height = rows;
+        fieldCtx = fieldCanvas.getContext("2d", { alpha: false });
+        applyBoundaryConditions();
+        seedParticles();
+      }
+
+      function resize() {
+        state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        state.viewportWidth = Math.max(1, window.innerWidth);
+        state.viewportHeight = Math.max(1, window.innerHeight);
+        canvas.width = Math.round(state.viewportWidth * state.dpr);
+        canvas.height = Math.round(state.viewportHeight * state.dpr);
+        canvas.style.width = `${state.viewportWidth}px`;
+        canvas.style.height = `${state.viewportHeight}px`;
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+        if (state.viewportWidth / state.viewportHeight > state.domainAspect) {
+          state.height = state.viewportHeight;
+          state.width = state.height * state.domainAspect;
+        } else {
+          state.width = state.viewportWidth;
+          state.height = state.width / state.domainAspect;
+        }
+        state.offsetX = (state.viewportWidth - state.width) * 0.5;
+        state.offsetY = (state.viewportHeight - state.height) * 0.5;
+        state.cellW = state.width / state.cols;
+        state.cellH = state.height / state.rows;
+      }
+
+      function addDefaultObstacle() {
+        const cx = Math.floor(state.cols * 0.35);
+        const cy = Math.floor(state.rows * 0.5);
+        const r = Math.max(5, Math.floor(Math.min(state.cols, state.rows) * 0.055));
+        drawObstacleCell(cx, cy, r, true);
+      }
+
+      function clearField() {
+        vx.fill(0);
+        vy.fill(0);
+        solid.fill(0);
+        applyBoundaryConditions();
+        seedParticles();
+      }
+
+      function seedParticles() {
+        const count = state.lowRes ? 900 : 1500;
+        state.particles = Array.from({ length: count }, () => ({
+          x: Math.random() * state.width,
+          y: Math.random() * state.height,
+          age: Math.random() * 160
+        }));
+      }
+
+      function resetParticle(p, fromLeft = false) {
+        p.x = fromLeft ? 0 : Math.random() * state.width;
+        p.y = state.height * (0.04 + Math.random() * 0.92);
+        p.age = Math.random() * 40;
+      }
+
+      function sampleVelocity(px, py) {
+        const gx = clamp((px / state.width) * (state.cols - 1), 0, state.cols - 1);
+        const gy = clamp((py / state.height) * (state.rows - 1), 0, state.rows - 1);
+        const x0 = Math.floor(gx);
+        const y0 = Math.floor(gy);
+        const x1 = Math.min(x0 + 1, state.cols - 1);
+        const y1 = Math.min(y0 + 1, state.rows - 1);
+        const tx = gx - x0;
+        const ty = gy - y0;
+        const i00 = idx(x0, y0);
+        const i10 = idx(x1, y0);
+        const i01 = idx(x0, y1);
+        const i11 = idx(x1, y1);
+        const sx0 = vx[i00] * (1 - tx) + vx[i10] * tx;
+        const sx1 = vx[i01] * (1 - tx) + vx[i11] * tx;
+        const sy0 = vy[i00] * (1 - tx) + vy[i10] * tx;
+        const sy1 = vy[i01] * (1 - tx) + vy[i11] * tx;
+        return {
+          x: sx0 * (1 - ty) + sx1 * ty,
+          y: sy0 * (1 - ty) + sy1 * ty
+        };
+      }
+
+      // 境界条件: このデモはコロケート格子で，セル中心に u=vx, v=vy を持つ。
+      // 左端は流入 u=U, v=0，右端は流出ゼロ勾配，上下面はスリップ v=0, du/dy=0。
+      function applyBoundaryConditions() {
+        const uIn = state.uniformFlow ? state.inflowSpeed : 0;
+        const top = 0;
+        const bottom = state.rows - 1;
+        const right = state.cols - 1;
+
+        for (let x = 0; x < state.cols; x++) {
+          vx[idx(x, top)] = vx[idx(x, 1)];
+          vy[idx(x, top)] = 0;
+          vx[idx(x, bottom)] = vx[idx(x, bottom - 1)];
+          vy[idx(x, bottom)] = 0;
+
+          // 低流速時に側方境界付近へ残る微小な法線速度を抑える緩衝層。
+          if (state.rows > 8) {
+            vy[idx(x, 1)] *= 0.18;
+            vy[idx(x, 2)] *= 0.55;
+            vy[idx(x, bottom - 1)] *= 0.18;
+            vy[idx(x, bottom - 2)] *= 0.55;
+          }
+        }
+
+        for (let y = 0; y < state.rows; y++) {
+          vx[idx(0, y)] = uIn;
+          vy[idx(0, y)] = 0;
+          if (state.cols > 3) {
+            vx[idx(1, y)] = uIn;
+            vy[idx(1, y)] = 0;
+          }
+          vx[idx(right, y)] = vx[idx(right - 1, y)];
+          vy[idx(right, y)] = vy[idx(right - 1, y)];
+        }
+
+        vx[idx(0, top)] = uIn;
+        vy[idx(0, top)] = 0;
+        vx[idx(0, bottom)] = uIn;
+        vy[idx(0, bottom)] = 0;
+
+        for (let i = 0; i < solid.length; i++) {
+          if (!solid[i]) continue;
+          vx[i] = 0;
+          vy[i] = 0;
+        }
+      }
+
+      // 外力: 指やマウスの動き，一様流，障害物周りの擬似的な剥離渦を速度場へ加える。
+      function applyForces(dt) {
+        const uniform = state.uniformFlow ? state.inflowSpeed : 0;
+        for (let y = 1; y < state.rows - 1; y++) {
+          for (let x = 1; x < state.cols - 1; x++) {
+            const i = idx(x, y);
+            if (solid[i]) {
+              vx[i] = 0;
+              vy[i] = 0;
+              continue;
+            }
+            vx[i] += (uniform - vx[i]) * 0.012;
+          }
+        }
+
+        if (state.pointer) {
+          const gx = (state.pointer.x / state.width) * state.cols;
+          const gy = (state.pointer.y / state.height) * state.rows;
+          const fx = state.pointer.dx * 0.065;
+          const fy = state.pointer.dy * 0.065;
+          const radius = state.obstacleMode ? 5 : 9;
+          if (state.obstacleMode) {
+            drawObstacleCell(Math.round(gx), Math.round(gy), radius, true);
+          } else {
+            addVelocityBlob(gx, gy, radius, fx, fy);
+          }
+        }
+
+      }
+
+      function addVelocityBlob(cx, cy, radius, fx, fy) {
+        const r2 = radius * radius;
+        const minX = Math.max(1, Math.floor(cx - radius));
+        const maxX = Math.min(state.cols - 2, Math.ceil(cx + radius));
+        const minY = Math.max(1, Math.floor(cy - radius));
+        const maxY = Math.min(state.rows - 2, Math.ceil(cy + radius));
+        for (let y = minY; y <= maxY; y++) {
+          for (let x = minX; x <= maxX; x++) {
+            const dx = x - cx;
+            const dy = y - cy;
+            const d2 = dx * dx + dy * dy;
+            if (d2 > r2) continue;
+            const i = idx(x, y);
+            if (solid[i]) continue;
+            const falloff = (1 - d2 / r2) * 0.74;
+            vx[i] += fx * falloff;
+            vy[i] += fy * falloff;
+          }
+        }
+      }
+
+      function drawObstacleCell(cx, cy, radius, value) {
+        const r2 = radius * radius;
+        const minX = Math.max(1, Math.floor(cx - radius));
+        const maxX = Math.min(state.cols - 2, Math.ceil(cx + radius));
+        const minY = Math.max(1, Math.floor(cy - radius));
+        const maxY = Math.min(state.rows - 2, Math.ceil(cy + radius));
+        for (let y = minY; y <= maxY; y++) {
+          for (let x = minX; x <= maxX; x++) {
+            const dx = x - cx;
+            const dy = y - cy;
+            if (dx * dx + dy * dy > r2) continue;
+            const i = idx(x, y);
+            solid[i] = value ? 1 : 0;
+            vx[i] = 0;
+            vy[i] = 0;
+          }
+        }
+      }
+
+      // 移流: v1モデル。速度場をひとつ前の位置からサンプリングし，流れに乗って運ぶ。
+      // 半ラグランジュ法なので安定だが，数値拡散は大きめ。
+      function advect(dt) {
+        const back = 0.72 * dt * Math.min(state.cols, state.rows);
+        for (let y = 1; y < state.rows - 1; y++) {
+          for (let x = 1; x < state.cols - 1; x++) {
+            const i = idx(x, y);
+            if (solid[i]) {
+              vxNext[i] = 0;
+              vyNext[i] = 0;
+              continue;
+            }
+            const px = clamp(x - vx[i] * back, 0, state.cols - 1);
+            const py = clamp(y - vy[i] * back, 1, state.rows - 2);
+            const x0 = Math.floor(px);
+            const y0 = Math.floor(py);
+            const x1 = Math.min(x0 + 1, state.cols - 1);
+            const y1 = Math.min(y0 + 1, state.rows - 1);
+            const tx = px - x0;
+            const ty = py - y0;
+            const i00 = idx(x0, y0);
+            const i10 = idx(x1, y0);
+            const i01 = idx(x0, y1);
+            const i11 = idx(x1, y1);
+            const ax0 = vx[i00] * (1 - tx) + vx[i10] * tx;
+            const ax1 = vx[i01] * (1 - tx) + vx[i11] * tx;
+            const ay0 = vy[i00] * (1 - tx) + vy[i10] * tx;
+            const ay1 = vy[i01] * (1 - tx) + vy[i11] * tx;
+            vxNext[i] = ax0 * (1 - ty) + ax1 * ty;
+            vyNext[i] = ay0 * (1 - ty) + ay1 * ty;
+          }
+        }
+        [vx, vxNext] = [vxNext, vx];
+        [vy, vyNext] = [vyNext, vy];
+      }
+
+      // 拡散: 近傍平均で速度を少しならす。圧力ポアソンを解かない簡易デモなので，
+      // 不正確な投影補正は入れず，境界条件を明示的に保つ。
+      function diffuseVelocity() {
+        vxNext.set(vx);
+        vyNext.set(vy);
+        for (let y = 1; y < state.rows - 1; y++) {
+          for (let x = 1; x < state.cols - 1; x++) {
+            const i = idx(x, y);
+            if (solid[i]) {
+              vxNext[i] = 0;
+              vyNext[i] = 0;
+              continue;
+            }
+            const l = idx(x - 1, y);
+            const r = idx(x + 1, y);
+            const u = idx(x, y - 1);
+            const d = idx(x, y + 1);
+            const diffusion = 0.18;
+            vxNext[i] = vx[i] * (1 - diffusion) + (vx[l] + vx[r] + vx[u] + vx[d]) * diffusion * 0.25;
+            vyNext[i] = vy[i] * (1 - diffusion) + (vy[l] + vy[r] + vy[u] + vy[d]) * diffusion * 0.25;
+          }
+        }
+        [vx, vxNext] = [vxNext, vx];
+        [vy, vyNext] = [vyNext, vy];
+      }
+
+      function damp() {
+        for (let i = 0; i < vx.length; i++) {
+          if (solid[i]) {
+            vx[i] = 0;
+            vy[i] = 0;
+          } else {
+            vx[i] *= 0.992;
+            vy[i] *= 0.992;
+          }
+        }
+      }
+
+      function pressureAt(x, y, fallback) {
+        if (x <= 0 || x >= state.cols - 1 || y <= 0 || y >= state.rows - 1) return fallback;
+        const i = idx(x, y);
+        return solid[i] ? fallback : pressure[i];
+      }
+
+      function computeDivergence() {
+        divergence.fill(0);
+        for (let y = 1; y < state.rows - 1; y++) {
+          for (let x = 1; x < state.cols - 1; x++) {
+            const i = idx(x, y);
+            if (solid[i]) continue;
+            const left = solid[idx(x - 1, y)] ? 0 : vx[idx(x - 1, y)];
+            const right = solid[idx(x + 1, y)] ? 0 : vx[idx(x + 1, y)];
+            const up = solid[idx(x, y - 1)] ? 0 : vy[idx(x, y - 1)];
+            const down = solid[idx(x, y + 1)] ? 0 : vy[idx(x, y + 1)];
+            divergence[i] = (right - left + down - up) * 0.5;
+          }
+        }
+      }
+
+      function solvePressure() {
+        pressure.fill(0);
+        pressureNext.fill(0);
+        for (let iter = 0; iter < state.pressureIterations; iter++) {
+          pressureNext.set(pressure);
+          for (let y = 1; y < state.rows - 1; y++) {
+            for (let x = 1; x < state.cols - 1; x++) {
+              const i = idx(x, y);
+              if (solid[i]) {
+                pressureNext[i] = 0;
+                continue;
+              }
+              const p0 = pressure[i];
+              const pl = pressureAt(x - 1, y, p0);
+              const pr = pressureAt(x + 1, y, p0);
+              const pu = pressureAt(x, y - 1, p0);
+              const pd = pressureAt(x, y + 1, p0);
+              pressureNext[i] = (pl + pr + pu + pd - divergence[i]) * 0.25;
+            }
+          }
+          [pressure, pressureNext] = [pressureNext, pressure];
+        }
+      }
+
+      // 連続式の近似: 圧力ポアソンを少数回だけ解き，速度から圧力勾配を引いて発散を減らす。
+      function projectVelocity() {
+        computeDivergence();
+        solvePressure();
+        for (let y = 1; y < state.rows - 1; y++) {
+          for (let x = 1; x < state.cols - 1; x++) {
+            const i = idx(x, y);
+            if (solid[i]) {
+              vx[i] = 0;
+              vy[i] = 0;
+              continue;
+            }
+            const p0 = pressure[i];
+            const gradX = (pressureAt(x + 1, y, p0) - pressureAt(x - 1, y, p0)) * 0.5;
+            const gradY = (pressureAt(x, y + 1, p0) - pressureAt(x, y - 1, p0)) * 0.5;
+            vx[i] -= gradX;
+            vy[i] -= gradY;
+          }
+        }
+      }
+
+      function step(dt) {
+        applyBoundaryConditions();
+        applyForces(dt);
+        applyBoundaryConditions();
+        advect(dt);
+        applyBoundaryConditions();
+        diffuseVelocity();
+        applyBoundaryConditions();
+        damp();
+        applyBoundaryConditions();
+        projectVelocity();
+        applyBoundaryConditions();
+      }
+
+      function colorMap(speed, obstacle) {
+        if (obstacle) return [22, 32, 35];
+        const t = clamp(speed / 1.35, 0, 1);
+        const stops = [
+          [6, 22, 30],
+          [16, 83, 107],
+          [42, 160, 153],
+          [231, 203, 111],
+          [255, 112, 88]
+        ];
+        const scaled = t * (stops.length - 1);
+        const base = Math.floor(scaled);
+        const next = Math.min(base + 1, stops.length - 1);
+        const mix = scaled - base;
+        return [
+          stops[base][0] * (1 - mix) + stops[next][0] * mix,
+          stops[base][1] * (1 - mix) + stops[next][1] * mix,
+          stops[base][2] * (1 - mix) + stops[next][2] * mix
+        ];
+      }
+
+      function vorticityAtCell(x, y) {
+        const xm = Math.max(0, x - 1);
+        const xp = Math.min(state.cols - 1, x + 1);
+        const ym = Math.max(0, y - 1);
+        const yp = Math.min(state.rows - 1, y + 1);
+        const dvdx = (vy[idx(xp, y)] - vy[idx(xm, y)]) * 0.5;
+        const dudy = (vx[idx(x, yp)] - vx[idx(x, ym)]) * 0.5;
+        return dvdx - dudy;
+      }
+
+      function colorMapVorticity(omega, obstacle) {
+        if (obstacle) return [22, 32, 35];
+        const t = clamp(omega / 0.18, -1, 1);
+        if (Math.abs(t) < 0.025) return [250, 252, 252];
+        if (t > 0) {
+          return [
+            250 + (189 - 250) * t,
+            252 + (54 - 252) * t,
+            252 + (46 - 252) * t
+          ];
+        }
+        const b = -t;
+        return [
+          250 + (42 - 250) * b,
+          252 + (105 - 252) * b,
+          252 + (194 - 252) * b
+        ];
+      }
+
+      function updateLegend() {
+        const isVorticity = state.contourMode === "vorticity";
+        if (isVorticity) {
+          legendLeft.textContent = "負の渦度";
+          legendCenter.textContent = "0";
+          legendRight.textContent = "正の渦度";
+          legendBar.style.background = "linear-gradient(90deg, #2a69c2, #fafdff 50%, #bd362e)";
+        } else {
+          legendLeft.textContent = "流速 小";
+          legendCenter.textContent = "";
+          legendRight.textContent = "流速 大";
+          legendBar.style.background = "linear-gradient(90deg, #061923, #15617a, #39b7a7, #f4d06e, #ff785e)";
+        }
+      }
+
+      // 描画: 速度コンター，渦度コンター，粒子，ベクトル，障害物をCanvasへ重ねる。
+      function draw() {
+        const showVorticity = state.contourMode === "vorticity";
+        const showParticles = state.trailScale >= 0;
+        const showVectors = state.showVectors;
+
+        ctx.fillStyle = "#050d11";
+        ctx.fillRect(0, 0, state.viewportWidth, state.viewportHeight);
+        ctx.save();
+        ctx.translate(state.offsetX, state.offsetY);
+        ctx.beginPath();
+        ctx.rect(0, 0, state.width, state.height);
+        ctx.clip();
+
+        for (let y = 0; y < state.rows; y++) {
+          for (let x = 0; x < state.cols; x++) {
+            const i = idx(x, y);
+            const p = i * 4;
+            const c = showVorticity
+              ? colorMapVorticity(vorticityAtCell(x, y), solid[i])
+              : colorMap(Math.hypot(vx[i], vy[i]), solid[i]);
+            speedData[p] = c[0];
+            speedData[p + 1] = c[1];
+            speedData[p + 2] = c[2];
+            speedData[p + 3] = 255;
+          }
+        }
+        fieldCtx.putImageData(speedImage, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(fieldCanvas, 0, 0, state.width, state.height);
+
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        drawSoftFlowLines();
+        ctx.restore();
+
+        if (showParticles) drawParticles();
+        if (showVectors) drawVectors();
+        drawObstacles();
+        ctx.restore();
+      }
+
+      function drawSoftFlowLines() {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(144, 226, 224, 0.08)";
+        const gap = Math.max(24, Math.min(state.width, state.height) / 18);
+        for (let y = gap * 0.6; y < state.height; y += gap) {
+          ctx.beginPath();
+          for (let x = 0; x <= state.width; x += 16) {
+            const v = sampleVelocity(x, y);
+            const yy = y + v.y * 18;
+            if (x === 0) ctx.moveTo(x, yy);
+            else ctx.lineTo(x, yy);
+          }
+          ctx.stroke();
+        }
+      }
+
+      function drawParticles() {
+        ctx.save();
+        ctx.globalCompositeOperation = state.contourMode === "vorticity" ? "source-over" : "lighter";
+        ctx.lineCap = "round";
+        for (const p of state.particles) {
+          const v = sampleVelocity(p.x, p.y);
+          const speed = Math.hypot(v.x, v.y);
+          const len = clamp(speed * (20 + state.trailScale * 7), 4, 26 + state.trailScale * 10);
+          const alpha = clamp(0.34 + speed * 0.58, 0.34, 0.95);
+          ctx.strokeStyle = state.contourMode === "vorticity"
+            ? `rgba(5, 36, 46, ${alpha})`
+            : `rgba(${130 + speed * 90}, ${214 + speed * 22}, 242, ${alpha})`;
+          ctx.lineWidth = clamp(1 + speed * 1.5, 1, 2.5);
+          ctx.beginPath();
+          if (state.trailScale === 0) {
+            ctx.arc(p.x, p.y, clamp(1.2 + speed, 1.2, 2.6), 0, Math.PI * 2);
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.fill();
+          } else {
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x - v.x * len, p.y - v.y * len);
+            ctx.stroke();
+          }
+
+          p.x += v.x * 34 + (state.uniformFlow ? state.inflowSpeed * 0.55 : 0.12);
+          p.y += v.y * 34;
+          p.age += 1;
+          const gx = Math.floor((p.x / state.width) * state.cols);
+          const gy = Math.floor((p.y / state.height) * state.rows);
+          if (
+            p.x < -20 || p.x > state.width + 20 ||
+            p.y < -20 || p.y > state.height + 20 ||
+            p.age > 260 ||
+            solid[idx(clamp(gx, 0, state.cols - 1), clamp(gy, 0, state.rows - 1))]
+          ) {
+            resetParticle(p, state.uniformFlow);
+          }
+        }
+        ctx.restore();
+      }
+
+      function drawVectors() {
+        const spacing = state.lowRes ? 36 : 44;
+        ctx.save();
+        ctx.strokeStyle = "rgba(240, 253, 252, 0.72)";
+        ctx.fillStyle = "rgba(240, 253, 252, 0.72)";
+        ctx.lineWidth = 1.6;
+        for (let y = spacing * 1.4; y < state.height - spacing * 0.6; y += spacing) {
+          for (let x = spacing * 0.8; x < state.width - spacing * 0.6; x += spacing) {
+            const v = sampleVelocity(x, y);
+            const speed = Math.hypot(v.x, v.y);
+            if (speed < 0.045) continue;
+            const len = clamp(speed * 30, 7, spacing * 0.58);
+            const angle = Math.atan2(v.y, v.x);
+            const x2 = x + Math.cos(angle) * len;
+            const y2 = y + Math.sin(angle) * len;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - Math.cos(angle - 0.55) * 6, y2 - Math.sin(angle - 0.55) * 6);
+            ctx.lineTo(x2 - Math.cos(angle + 0.55) * 6, y2 - Math.sin(angle + 0.55) * 6);
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      function drawObstacles() {
+        ctx.save();
+        ctx.fillStyle = "rgba(12, 19, 22, 0.94)";
+        ctx.strokeStyle = "rgba(245, 196, 106, 0.72)";
+        ctx.lineWidth = 1.2;
+        for (let y = 0; y < state.rows; y++) {
+          let runStart = -1;
+          for (let x = 0; x <= state.cols; x++) {
+            const occupied = x < state.cols && solid[idx(x, y)];
+            if (occupied && runStart < 0) runStart = x;
+            if ((!occupied || x === state.cols) && runStart >= 0) {
+              const px = runStart * state.cellW;
+              const py = y * state.cellH;
+              const pw = (x - runStart) * state.cellW;
+              ctx.fillRect(px, py, Math.max(pw, 1), Math.max(state.cellH, 1));
+              runStart = -1;
+            }
+          }
+        }
+        ctx.strokeRect(-2, -2, state.width + 4, state.height + 4);
+        ctx.restore();
+      }
+
+      function pointerPosition(event) {
+        const touch = event.touches && event.touches[0] ? event.touches[0] : event;
+        return {
+          x: clamp(touch.clientX - state.offsetX, 0, state.width),
+          y: clamp(touch.clientY - state.offsetY, 0, state.height)
+        };
+      }
+
+      function startPointer(event) {
+        event.preventDefault();
+        const p = pointerPosition(event);
+        state.pointer = { x: p.x, y: p.y, px: p.x, py: p.y, dx: 0, dy: 0 };
+      }
+
+      function movePointer(event) {
+        if (!state.pointer) return;
+        event.preventDefault();
+        const p = pointerPosition(event);
+        state.pointer.dx = clamp(p.x - state.pointer.x, -38, 38);
+        state.pointer.dy = clamp(p.y - state.pointer.y, -38, 38);
+        state.pointer.px = state.pointer.x;
+        state.pointer.py = state.pointer.y;
+        state.pointer.x = p.x;
+        state.pointer.y = p.y;
+      }
+
+      function endPointer() {
+        state.pointer = null;
+      }
+
+      function updateButtons() {
+        flowBtn.textContent = state.uniformFlow ? "一様流 ON" : "一様流 OFF";
+        flowBtn.setAttribute("aria-pressed", String(state.uniformFlow));
+        obstacleBtn.setAttribute("aria-pressed", String(state.obstacleMode));
+        lowBtn.setAttribute("aria-pressed", String(state.lowRes));
+        lowBtn.textContent = state.lowRes ? "低解像度 ON" : "低解像度";
+        speedValue.textContent = state.inflowSpeed.toFixed(2);
+        trailValue.textContent = state.trailScale < 0 ? "なし" : String(state.trailScale);
+        updateLegend();
+        statusText.textContent = state.obstacleMode
+          ? "障害物を描くモードです。流れの中に形を作り，後ろの乱れを観察してください。"
+          : notes[Math.floor(state.frame / 240) % notes.length];
+      }
+
+      function setResolution(low) {
+        state.lowRes = low;
+        const rows = low ? 64 : 96;
+        const cols = Math.round(rows * state.domainAspect);
+        initField(cols, rows);
+        resize();
+        updateButtons();
+      }
+
+      flowBtn.addEventListener("click", () => {
+        state.uniformFlow = !state.uniformFlow;
+        updateButtons();
+      });
+
+      obstacleBtn.addEventListener("click", () => {
+        state.obstacleMode = !state.obstacleMode;
+        updateButtons();
+      });
+
+      lowBtn.addEventListener("click", () => {
+        setResolution(!state.lowRes);
+      });
+
+      resetBtn.addEventListener("click", () => {
+        clearField();
+      });
+
+      contourSelect.addEventListener("change", () => {
+        state.contourMode = contourSelect.value;
+        updateButtons();
+      });
+
+      vectorSelect.addEventListener("change", () => {
+        state.showVectors = vectorSelect.value === "on";
+        updateButtons();
+      });
+
+      speedSlider.addEventListener("input", () => {
+        state.inflowSpeed = Number(speedSlider.value);
+        updateButtons();
+      });
+
+      trailSlider.addEventListener("input", () => {
+        state.trailScale = Number(trailSlider.value);
+        updateButtons();
+      });
+
+      if (window.PointerEvent) {
+        canvas.addEventListener("pointerdown", startPointer, { passive: false });
+        canvas.addEventListener("pointermove", movePointer, { passive: false });
+        window.addEventListener("pointerup", endPointer);
+        window.addEventListener("pointercancel", endPointer);
+      } else {
+        canvas.addEventListener("mousedown", startPointer, { passive: false });
+        canvas.addEventListener("mousemove", movePointer, { passive: false });
+        window.addEventListener("mouseup", endPointer);
+        canvas.addEventListener("touchstart", startPointer, { passive: false });
+        canvas.addEventListener("touchmove", movePointer, { passive: false });
+        window.addEventListener("touchend", endPointer);
+        window.addEventListener("touchcancel", endPointer);
+      }
+      window.addEventListener("resize", () => {
+        resize();
+        seedParticles();
+      });
+
+      function animate(now) {
+        const rawDt = (now - state.lastTime) / 1000;
+        const dt = clamp(rawDt, 0.008, 0.033);
+        state.lastTime = now;
+        step(dt);
+        draw();
+        state.frame += 1;
+        if (state.frame % 60 === 0) updateButtons();
+        requestAnimationFrame(animate);
+      }
+
+      resize();
+      setResolution(false);
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>
