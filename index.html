@@ -401,6 +401,7 @@
       <div class="control-grid">
         <button id="flowBtn" type="button" aria-pressed="true">一様流 ON</button>
         <button id="obstacleBtn" type="button" aria-pressed="false">障害物を描く</button>
+        <button id="pumpBtn" type="button" aria-pressed="false">ポンプを配置</button>
         <button id="lowBtn" type="button" aria-pressed="false">低解像度</button>
         <button id="resetBtn" type="button" class="danger">リセット</button>
         <select id="contourSelect" aria-label="コンター">
@@ -415,6 +416,11 @@
           <label for="speedSlider">流入流速</label>
           <input id="speedSlider" type="range" min="0.1" max="1.2" value="0.20" step="0.02">
           <output id="speedValue" for="speedSlider">0.20</output>
+        </div>
+        <div class="range-control">
+          <label for="pumpSlider">ポンプ出力</label>
+          <input id="pumpSlider" type="range" min="-1.2" max="1.2" value="0.45" step="0.05">
+          <output id="pumpValue" for="pumpSlider">0.45</output>
         </div>
         <div class="range-control">
           <label for="trailSlider">粒子軌跡</label>
@@ -438,12 +444,15 @@
       const controlsPanel = document.getElementById("controlsPanel");
       const flowBtn = document.getElementById("flowBtn");
       const obstacleBtn = document.getElementById("obstacleBtn");
+      const pumpBtn = document.getElementById("pumpBtn");
       const lowBtn = document.getElementById("lowBtn");
       const resetBtn = document.getElementById("resetBtn");
       const contourSelect = document.getElementById("contourSelect");
       const vectorSelect = document.getElementById("vectorSelect");
       const speedSlider = document.getElementById("speedSlider");
       const speedValue = document.getElementById("speedValue");
+      const pumpSlider = document.getElementById("pumpSlider");
+      const pumpValue = document.getElementById("pumpValue");
       const trailSlider = document.getElementById("trailSlider");
       const trailValue = document.getElementById("trailValue");
 
@@ -454,6 +463,8 @@
         uniformFlow: true,
         inflowSpeed: 0.20,
         obstacleMode: false,
+        pumpMode: false,
+        pumpPower: 0.45,
         contourMode: "speed",
         showVectors: true,
         controlsCollapsed: window.innerWidth <= 680,
@@ -470,6 +481,8 @@
         cellW: 1,
         cellH: 1,
         pointer: null,
+        pumpDraft: null,
+        pumps: [],
         particles: [],
         frame: 0,
         lastTime: performance.now()
@@ -530,6 +543,8 @@
       }
 
       function resize() {
+        const oldWidth = state.width;
+        const oldHeight = state.height;
         state.dpr = Math.min(window.devicePixelRatio || 1, 2);
         state.viewportWidth = Math.max(1, window.innerWidth);
         state.viewportHeight = Math.max(1, window.innerHeight);
@@ -549,6 +564,27 @@
         state.offsetY = (state.viewportHeight - state.height) * 0.5;
         state.cellW = state.width / state.cols;
         state.cellH = state.height / state.rows;
+        if (oldWidth > 1 && oldHeight > 1) {
+          scalePumps(oldWidth, oldHeight, state.width, state.height);
+        }
+      }
+
+      function scalePumps(oldWidth, oldHeight, newWidth, newHeight) {
+        if (oldWidth === newWidth && oldHeight === newHeight) return;
+        const sx = newWidth / oldWidth;
+        const sy = newHeight / oldHeight;
+        for (const pump of state.pumps) {
+          pump.x1 *= sx;
+          pump.x2 *= sx;
+          pump.y1 *= sy;
+          pump.y2 *= sy;
+        }
+        if (state.pumpDraft) {
+          state.pumpDraft.x1 *= sx;
+          state.pumpDraft.x2 *= sx;
+          state.pumpDraft.y1 *= sy;
+          state.pumpDraft.y2 *= sy;
+        }
       }
 
       function addDefaultObstacle() {
@@ -562,6 +598,8 @@
         vx.fill(0);
         vy.fill(0);
         solid.fill(0);
+        state.pumps = [];
+        state.pumpDraft = null;
         applyBoundaryConditions();
         seedParticles();
       }
@@ -650,7 +688,7 @@
         }
       }
 
-      // 外力: 指やマウスの動き，一様流，障害物周りの擬似的な剥離渦を速度場へ加える。
+      // 外力: 一様流，指やマウスの動き，配置済みポンプを速度場へ加える。
       function applyForces(dt) {
         const uniform = state.uniformFlow ? state.inflowSpeed : 0;
         for (let y = 1; y < state.rows - 1; y++) {
@@ -665,7 +703,11 @@
           }
         }
 
-        if (state.pointer) {
+        for (const pump of state.pumps) {
+          addPumpForce(pump);
+        }
+
+        if (state.pointer && !state.pumpMode) {
           const gx = (state.pointer.x / state.width) * state.cols;
           const gy = (state.pointer.y / state.height) * state.rows;
           const fx = state.pointer.dx * 0.065;
@@ -678,6 +720,52 @@
           }
         }
 
+      }
+
+      // ポンプ: 配置した線分に沿って局所的な体積力を与える。出力が負なら矢印と逆向きに駆動する。
+      function addPumpForce(pump) {
+        const dx = pump.x2 - pump.x1;
+        const dy = pump.y2 - pump.y1;
+        const len = Math.hypot(dx, dy);
+        if (len < 8) return;
+        const ux = dx / len;
+        const uy = dy / len;
+        const targetX = ux * state.pumpPower;
+        const targetY = uy * state.pumpPower;
+        const gx1 = (pump.x1 / state.width) * state.cols;
+        const gy1 = (pump.y1 / state.height) * state.rows;
+        const gx2 = (pump.x2 / state.width) * state.cols;
+        const gy2 = (pump.y2 / state.height) * state.rows;
+        const gridLen = Math.max(1, Math.hypot(gx2 - gx1, gy2 - gy1));
+        const samples = Math.max(2, Math.min(18, Math.ceil(gridLen * 0.6)));
+        const radius = state.lowRes ? 3.6 : 4.8;
+        for (let s = 0; s < samples; s++) {
+          const t = samples === 1 ? 0.5 : s / (samples - 1);
+          const cx = gx1 + (gx2 - gx1) * t;
+          const cy = gy1 + (gy2 - gy1) * t;
+          relaxVelocityBlob(cx, cy, radius, targetX, targetY, 0.13);
+        }
+      }
+
+      function relaxVelocityBlob(cx, cy, radius, targetX, targetY, gain) {
+        const r2 = radius * radius;
+        const minX = Math.max(1, Math.floor(cx - radius));
+        const maxX = Math.min(state.cols - 2, Math.ceil(cx + radius));
+        const minY = Math.max(1, Math.floor(cy - radius));
+        const maxY = Math.min(state.rows - 2, Math.ceil(cy + radius));
+        for (let y = minY; y <= maxY; y++) {
+          for (let x = minX; x <= maxX; x++) {
+            const dx = x - cx;
+            const dy = y - cy;
+            const d2 = dx * dx + dy * dy;
+            if (d2 > r2) continue;
+            const i = idx(x, y);
+            if (solid[i]) continue;
+            const falloff = (1 - d2 / r2) * gain;
+            vx[i] += (targetX - vx[i]) * falloff;
+            vy[i] += (targetY - vy[i]) * falloff;
+          }
+        }
       }
 
       function addVelocityBlob(cx, cy, radius, fx, fy) {
@@ -966,6 +1054,7 @@
         if (showParticles) drawParticles();
         if (showVectors) drawVectors();
         drawObstacles();
+        drawPumps();
         ctx.restore();
       }
 
@@ -1079,6 +1168,44 @@
         ctx.restore();
       }
 
+      function drawPumps() {
+        const pumps = state.pumpDraft ? state.pumps.concat(state.pumpDraft) : state.pumps;
+        if (!pumps.length) return;
+        ctx.save();
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        for (const pump of pumps) {
+          const dx = pump.x2 - pump.x1;
+          const dy = pump.y2 - pump.y1;
+          const len = Math.hypot(dx, dy);
+          if (len < 2) continue;
+          const sign = state.pumpPower >= 0 ? 1 : -1;
+          const sx = sign >= 0 ? pump.x1 : pump.x2;
+          const sy = sign >= 0 ? pump.y1 : pump.y2;
+          const ex = sign >= 0 ? pump.x2 : pump.x1;
+          const ey = sign >= 0 ? pump.y2 : pump.y1;
+          const angle = Math.atan2(ey - sy, ex - sx);
+          const color = pump.preview ? "rgba(255, 255, 255, 0.76)" : "rgba(244, 196, 106, 0.9)";
+          ctx.strokeStyle = color;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(ex, ey);
+          ctx.lineTo(ex - Math.cos(angle - 0.55) * 12, ey - Math.sin(angle - 0.55) * 12);
+          ctx.lineTo(ex - Math.cos(angle + 0.55) * 12, ey - Math.sin(angle + 0.55) * 12);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
       function pointerPosition(event) {
         const touch = event.touches && event.touches[0] ? event.touches[0] : event;
         return {
@@ -1090,6 +1217,9 @@
       function startPointer(event) {
         event.preventDefault();
         const p = pointerPosition(event);
+        if (state.pumpMode) {
+          state.pumpDraft = { x1: p.x, y1: p.y, x2: p.x, y2: p.y, preview: true };
+        }
         state.pointer = { x: p.x, y: p.y, px: p.x, py: p.y, dx: 0, dy: 0 };
       }
 
@@ -1103,9 +1233,21 @@
         state.pointer.py = state.pointer.y;
         state.pointer.x = p.x;
         state.pointer.y = p.y;
+        if (state.pumpDraft) {
+          state.pumpDraft.x2 = p.x;
+          state.pumpDraft.y2 = p.y;
+        }
       }
 
       function endPointer() {
+        if (state.pumpDraft) {
+          const pump = state.pumpDraft;
+          const len = Math.hypot(pump.x2 - pump.x1, pump.y2 - pump.y1);
+          if (len >= 12) {
+            state.pumps.push({ x1: pump.x1, y1: pump.y1, x2: pump.x2, y2: pump.y2 });
+          }
+          state.pumpDraft = null;
+        }
         state.pointer = null;
       }
 
@@ -1116,9 +1258,12 @@
         flowBtn.textContent = state.uniformFlow ? "一様流 ON" : "一様流 OFF";
         flowBtn.setAttribute("aria-pressed", String(state.uniformFlow));
         obstacleBtn.setAttribute("aria-pressed", String(state.obstacleMode));
+        pumpBtn.textContent = state.pumpMode ? "ポンプ配置 ON" : "ポンプを配置";
+        pumpBtn.setAttribute("aria-pressed", String(state.pumpMode));
         lowBtn.setAttribute("aria-pressed", String(state.lowRes));
         lowBtn.textContent = state.lowRes ? "低解像度 ON" : "低解像度";
         speedValue.textContent = state.inflowSpeed.toFixed(2);
+        pumpValue.textContent = state.pumpPower.toFixed(2);
         trailValue.textContent = state.trailScale < 0 ? "なし" : String(state.trailScale);
       }
 
@@ -1138,6 +1283,17 @@
 
       obstacleBtn.addEventListener("click", () => {
         state.obstacleMode = !state.obstacleMode;
+        if (state.obstacleMode) state.pumpMode = false;
+        state.pumpDraft = null;
+        state.pointer = null;
+        updateButtons();
+      });
+
+      pumpBtn.addEventListener("click", () => {
+        state.pumpMode = !state.pumpMode;
+        if (state.pumpMode) state.obstacleMode = false;
+        state.pumpDraft = null;
+        state.pointer = null;
         updateButtons();
       });
 
@@ -1178,6 +1334,11 @@
 
       speedSlider.addEventListener("input", () => {
         state.inflowSpeed = Number(speedSlider.value);
+        updateButtons();
+      });
+
+      pumpSlider.addEventListener("input", () => {
+        state.pumpPower = Number(pumpSlider.value);
         updateButtons();
       });
 
